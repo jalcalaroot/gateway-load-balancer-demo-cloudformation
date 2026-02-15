@@ -1,0 +1,1095 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  #Prefix
+  Prefix:
+    Description: Prefix name resources account associate
+    Type: String
+    Default: account
+  PrefixResources:
+    Description: Prefix name resources SecurityGroup,Nacl, 
+    Type: String
+    Default: baseline
+  #FlowLogs
+  EnableVpcFlowLog:
+    AllowedValues:
+    - "yes"
+    - "no"
+    Default: "no"
+    Description: enable VPC Flowlog to log and audit VPC traffic. 
+    Type: String
+  EnableEncrypLog:
+    AllowedValues:
+    - "yes"
+    - "no"
+    Default: "no"
+    Description: enable Encrpy Flowlog loggroup , necesary if EnableVpcFlowLog is Yes  
+    Type: String
+  FlowLogKmsArn:
+    Type: String
+    Description: ARN KMS Logs Group ARN example arn:aws:kms:region:account:key/ID, necesary if   EnableEncrypLog  is yes 
+  LogGroupRetention:
+    Description: Retention Loggroup Min 14 Default 14, Values 14,30,60,90,120,150,180,400,545,731,1096,1827,2192,2557,2922,3288,3653
+    Type: Number
+    Default: 14
+  #VPC CID /20 Netmask
+  VPCCIDR:
+    Description: CIDR Red Virtual
+    Type: String
+    Default: 10.0.32.0/20
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  # Avility Zone 
+  AZa:
+    Description: Avility Zone A
+    Type: String
+    Default: 'us-east-1a' 
+  AZb:
+    Description: Avility Zone b
+    Type: String
+    Default: 'us-east-1b'
+  AZc:
+    Description: Avility Zone b
+    Type: String
+    Default: 'us-east-1c'
+  #private subnet GWLBe - /28 netmask
+  PrivSubGWLBea:
+    Description: CIDR Red Privada GWLBe AZa
+    Type: String
+    Default: 10.0.32.48/28
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  PrivSubGWLBeb:
+    Description: CIDR Red Privada GWLBe AZb
+    Type: String
+    Default: 10.0.32.64/28
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  PrivSubGWLBec:
+    Description: CIDR Red Privada GWLBe AZc
+    Type: String
+    Default: 10.0.32.80/28
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  
+  #Private subnet TGWa - /28 netmask
+  PrivSubTGWaa:
+    Description: CIDR Red Privada TGWa  AZa
+    Type: String
+    Default: 10.0.32.0/28
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  PrivSubTGWab:
+    Description: CIDR Red Privada TGWa  AZb
+    Type: String
+    Default: 10.0.32.16/28
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  PrivSubTGWac:
+    Description: CIDR Red Privada TGWa  AZc
+    Type: String
+    Default: 10.0.32.32/28
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+
+  #private subnet private  - /24 netmask
+  PrivSuba:
+    Description: CIDR Red Privada AZ a
+    Type: String
+    Default: 10.0.33.0/24
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  PrivSubb:
+    Description: CIDR Red Privada AZ b
+    Type: String
+    Default: 10.0.34.0/24
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  PrivSubc:
+    Description: CIDR Red Privada Az c 
+    Type: String
+    Default: 10.0.35.0/24
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  #private subnet Internal - /24 netmask
+  IntSuba:
+    Description: CIDR Red Internal Internal AZ a
+    Type: String
+    Default: 10.0.36.0/24
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  IntSubb:
+    Description: CIDR Red Privada Internal AZ b
+    Type: String
+    Default: 10.0.37.0/24
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  IntSubc:
+    Description: CIDR Red Privada Internal  Az c 
+    Type: String
+    Default: 10.0.38.0/24
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  # PUblic Subnets 
+  PUBa:
+    Description: CIDR Red Publica /24 NetMask AZa
+    Type: String
+    Default: 10.0.39.0/24
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  PUBb:
+    Description: CIDR Red Publica /24 NetMask AZb
+    Type: String
+    Default: 10.0.40.0/24
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  PUBc:
+    Description: CIDR Red Publica /24 NetMask AZc
+    Type: String
+    Default: 10.0.41.0/24
+    AllowedPattern: "[a-zA-Z0-9]+\\..+"
+  #endpoint
+  S3VPCEndpoint:
+    Type: "String"
+    Description: "S3 private traffic through VPC Endpoint"
+    AllowedValues:
+      - "True"
+      - "False"
+    Default: "True"
+  SQSVPCEndpoint:
+    Type: "String"
+    Description: "SQS endpoint private traffic through VPC Endpoint"
+    AllowedValues:
+      - "True"
+      - "False"
+    Default: "True"
+  APIGWVPCEndpoint:
+    Type: "String"
+    Description: "API Gateway endpoint private traffic through VPC Endpoint"
+    AllowedValues:
+      - "True"
+      - "False"
+    Default: "True"
+  SSMVPCEndpoint:
+    Type: "String"
+    Description: "SSM endpoint private traffic through VPC Endpoint"
+    AllowedValues:
+      - "True"
+      - "False"
+    Default: "True"
+
+Conditions: 
+  EnableVpcFloEncryp:  !And [!Equals [!Ref "EnableVpcFlowLog", 'yes'], !Equals [!Ref "EnableEncrypLog", 'yes']]
+  EnableVpcFloNotEncryp:  !And [!Equals [!Ref "EnableVpcFlowLog", 'yes'], !Equals [!Ref "EnableEncrypLog", 'no']]
+  EnableS3Endpoint: !Equals [ !Ref  S3VPCEndpoint, 'True' ]
+  EnableSQSEndpoint: !Equals [ !Ref  SQSVPCEndpoint, 'True' ]
+  EnableAPIGWEndpoint: !Equals [ !Ref  APIGWVPCEndpoint, 'True' ]
+  EnableSSMEndpoint: !Equals [ !Ref  SSMVPCEndpoint, 'True' ]
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-VPC'
+      CidrBlock:
+        Ref: VPCCIDR
+      EnableDnsHostnames: 'true'
+      EnableDnsSupport: 'true'
+  IGW:
+    Type: AWS::EC2::InternetGateway
+    Properties: {}
+  GatewayAttach:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId:
+        Ref: IGW
+      VpcId:
+        Ref: VPC
+  #Subnet Creations Public /Private
+  PubSubneta:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W33
+            reason: "Public Subnet required by design "
+    Properties:
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-Public-${AZa}'
+      VpcId:
+        Ref: VPC
+      CidrBlock:
+        Ref: PUBa
+      AvailabilityZone: 
+        Ref:  AZa 
+  PubSubnetb:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W33
+            reason: "Public Subnet required by design "
+    Properties:
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-Public-${AZb}'
+      VpcId:
+        Ref: VPC
+      CidrBlock:
+        Ref: PUBb
+      AvailabilityZone: 
+        Ref: AZb
+  PubSubnetc:
+    Type: AWS::EC2::Subnet
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W33
+            reason: "Public Subnet required by design "
+    Properties:
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-Public-${AZc}'
+      VpcId:
+        Ref: VPC
+      CidrBlock:
+        Ref: PUBc
+      AvailabilityZone: 
+        Ref: AZc
+  
+  PrivSubnetTGWaa:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-PrivateTGWa-${AZa}'
+      AvailabilityZone: 
+        Ref: AZa
+      CidrBlock:
+        Ref: PrivSubTGWaa
+      VpcId:
+        Ref: VPC 
+  PrivSubnetTGWab:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-PrivateTGWa-${AZb}'
+      AvailabilityZone:
+        Ref:  AZb
+      CidrBlock:
+        Ref: PrivSubTGWab
+      VpcId:
+        Ref: VPC
+  PrivSubnetTGWac:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-PrivateTGWa-${AZc}'
+      AvailabilityZone:
+        Ref:  AZc
+      CidrBlock:
+        Ref: PrivSubTGWac
+      VpcId:
+        Ref: VPC
+  PrivSubnetGWLBea:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-PrivateGWLBe-${AZa}'
+      AvailabilityZone: 
+        Ref: AZa
+      CidrBlock:
+        Ref: PrivSubGWLBea
+      VpcId:
+        Ref: VPC 
+  PrivSubnetGWLBeb:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-PrivateGWLBe-${AZb}'
+      AvailabilityZone: 
+        Ref: AZb
+      CidrBlock:
+        Ref: PrivSubGWLBeb
+      VpcId:
+        Ref: VPC  
+  PrivSubnetGWLBec:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-PrivateGWLBe-${AZc}'
+      AvailabilityZone: 
+        Ref: AZc
+      CidrBlock:
+        Ref: PrivSubGWLBec
+      VpcId:
+        Ref: VPC
+  
+  PrivSubneta:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-Private-${AZa}'
+      AvailabilityZone:
+        Ref:  AZa
+      CidrBlock:
+        Ref: PrivSuba
+      VpcId:
+        Ref: VPC
+  PrivSubnetb:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-Private-${AZb}'
+      AvailabilityZone:
+        Ref:  AZb
+      CidrBlock:
+        Ref: PrivSubb
+      VpcId:
+        Ref: VPC
+  PrivSubnetc:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-Private-${AZc}'
+      AvailabilityZone:
+        Ref:  AZc
+      CidrBlock:
+        Ref: PrivSubc
+      VpcId:
+        Ref: VPC
+  InternalSubneta:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-PrivateInternal-${AZa}'
+      AvailabilityZone:
+        Ref:  AZa
+      CidrBlock:
+        Ref: IntSuba
+      VpcId:
+        Ref: VPC
+  InternalSubnetb:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-PrivateInternal-${AZb}'
+      AvailabilityZone:
+        Ref:  AZb
+      CidrBlock:
+        Ref: IntSubb
+      VpcId:
+        Ref: VPC
+  InternalSubnetc:
+    Type: AWS::EC2::Subnet
+    Properties:
+      MapPublicIpOnLaunch: false
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-PrivateInternal-${AZc}'
+      AvailabilityZone:
+        Ref:  AZc
+      CidrBlock:
+        Ref: IntSubc
+      VpcId:
+        Ref: VPC
+  #routers Tables Creations 
+  RouteTablePrivate:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-PrivateRouterTable'
+      VpcId:
+        Ref: VPC
+  RouteTableInternal:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-InternalRouterTable'
+      VpcId:
+        Ref: VPC
+  RouteTableTransitGWa:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-TransitGWaRouterTable'
+      VpcId:
+        Ref: VPC
+  RouteTableGWLBea:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-PrivateRouterTable-GWLBe-${AZa}'
+      VpcId:
+        Ref: VPC
+  RouteTableGWLBeb:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-PrivateRouterTable-GWLBe-${AZb}'
+      VpcId:
+        Ref: VPC
+  RouteTableGWLBec:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-PrivateRouterTable-GWLBe-${AZc}'
+      VpcId:
+        Ref: VPC
+  RouteTablePuba:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-RouterTablePublic-${AZa}'
+      VpcId:
+        Ref: VPC
+  RouteTablePubb:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-RouterTablePublic-${AZb}'
+      VpcId:
+        Ref: VPC
+  RouteTablePubc:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      Tags:
+      - Key: Name
+        Value: !Sub '${Prefix}-RouterTablePublic-${AZc}'
+      VpcId:
+        Ref: VPC
+  
+  #NAC ACL
+  NaclPublic:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: !Sub '${PrefixResources}-nacl-Publicsubnets'
+      VpcId:
+        Ref: VPC
+  NaclPublicInboundRule:
+    Type: AWS::EC2::NetworkAclEntry
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W66
+            reason: "nacl allow all ingress traffic by default initially "
+    Properties:
+       NetworkAclId:
+         Ref: NaclPublic
+       RuleNumber: 100
+       Protocol: "-1"
+       RuleAction: allow
+       CidrBlock: 0.0.0.0/0
+  NaclPublicOutboundRule:
+    Type: AWS::EC2::NetworkAclEntry
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W66
+            reason: "nacl allow all egress  traffic by default initially "
+    Properties:
+       NetworkAclId:
+         Ref: NaclPublic
+       RuleNumber: 100
+       Protocol: "-1"
+       Egress: true
+       RuleAction: allow
+       CidrBlock: 0.0.0.0/0
+  NaclPrivate:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: !Sub '${PrefixResources}-nacl-Privatesubnets'
+      VpcId:
+        Ref: VPC
+  NaclPrivateInboundRule:
+    Type: AWS::EC2::NetworkAclEntry
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W66
+            reason: "nacl allow all ingress  traffic by default initially "
+    Properties:
+       NetworkAclId:
+         Ref: NaclPrivate
+       RuleNumber: 100
+       Protocol: "-1"
+       RuleAction: allow
+       CidrBlock: 0.0.0.0/0
+  NaclPrivateOutboundRule:
+    Type: AWS::EC2::NetworkAclEntry
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W66
+            reason: "nacl allow all egress  traffic by default initially "
+    Properties:
+       NetworkAclId:
+         Ref: NaclPrivate
+       RuleNumber: 100
+       Protocol: "-1"
+       Egress: true
+       RuleAction: allow
+       CidrBlock: 0.0.0.0/0
+  
+  #NACACL ASSOCIATIONS 
+  NaclAssociationPuba: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPublic
+      SubnetId: 
+        Ref: PubSubneta
+  NaclAssociationPubb: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPublic
+      SubnetId: 
+        Ref: PubSubnetb
+  NaclAssociationPubc: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPublic
+      SubnetId: 
+        Ref: PubSubnetc
+  
+  NaclAssociationPrivatea: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPrivate
+      SubnetId: 
+        Ref: PrivSubneta
+  NaclAssociationPrivateb: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPrivate
+      SubnetId: 
+        Ref: PrivSubnetb
+  NaclAssociationPrivatec: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPrivate
+      SubnetId: 
+        Ref: PrivSubnetc
+  
+  NaclAssociationInternala: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPrivate
+      SubnetId: 
+        Ref: InternalSubneta
+  NaclAssociationInternalb: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPrivate
+      SubnetId: 
+        Ref: InternalSubnetb
+  NaclAssociationInternalc: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPrivate
+      SubnetId: 
+        Ref: InternalSubnetc
+  
+  NaclAssociationPrivSubnetTGWaa: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPrivate
+      SubnetId: 
+        Ref: PrivSubnetTGWaa
+  NaclAssociationPrivSubnetTGWab: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPrivate
+      SubnetId: 
+        Ref: PrivSubnetTGWab
+  NaclAssociationPrivSubnetTGWac: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPrivate
+      SubnetId: 
+        Ref: PrivSubnetTGWac
+
+  NaclAssociationPrivSubnetGWLBea: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPrivate
+      SubnetId: 
+        Ref: PrivSubnetGWLBea
+  NaclAssociationPrivSubnetGWLBeb: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPrivate
+      SubnetId: 
+        Ref: PrivSubnetGWLBeb
+  NaclAssociationPrivSubnetGWLBec: 
+    Type: AWS::EC2::SubnetNetworkAclAssociation
+    Properties:
+      NetworkAclId:
+        Ref: NaclPrivate
+      SubnetId: 
+        Ref: PrivSubnetGWLBec
+
+  #RouterTables Asociaciatios 
+  RouteTableAssocTGWaa:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivSubnetTGWaa
+      RouteTableId:
+        Ref: RouteTableTransitGWa
+  RouteTableAssocTGWab:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivSubnetTGWab
+      RouteTableId:
+        Ref: RouteTableTransitGWa
+  RouteTableAssocTGWac:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivSubnetTGWac
+      RouteTableId:
+        Ref: RouteTableTransitGWa
+  RouteTableAssocPriva:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivSubneta
+      RouteTableId:
+        Ref: RouteTablePrivate
+  RouteTableAssocPrivb:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivSubnetb
+      RouteTableId:
+        Ref: RouteTablePrivate
+  RouteTableAssocPrivc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivSubnetc
+      RouteTableId:
+        Ref: RouteTablePrivate
+  RouteTableAssocInta:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: InternalSubneta
+      RouteTableId:
+        Ref: RouteTableInternal
+  RouteTableAssocIntb:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: InternalSubnetb
+      RouteTableId:
+        Ref: RouteTableInternal
+  RouteTableAssocIntc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: InternalSubnetc
+      RouteTableId:
+        Ref: RouteTableInternal  
+  RouteTableAssocGWLBea:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivSubnetGWLBea
+      RouteTableId:
+        Ref: RouteTableGWLBea
+  RouteTableAssocGWLBeb:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivSubnetGWLBeb
+      RouteTableId:
+        Ref: RouteTableGWLBeb
+  RouteTableAssocGWLBec:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PrivSubnetGWLBec
+      RouteTableId:
+        Ref: RouteTableGWLBec
+  RouteTableAssocPUBa:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PubSubneta
+      RouteTableId:
+        Ref: RouteTablePuba
+  RouteTableAssocPUBb:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PubSubnetb
+      RouteTableId:
+        Ref: RouteTablePubb
+  RouteTableAssocPUBc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PubSubnetc
+      RouteTableId:
+        Ref: RouteTablePubc
+
+  #RoutersCreations
+  PubRoutea:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId:
+        Ref: RouteTablePuba
+      GatewayId:
+        Ref: IGW 
+  PubRouteb:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId:
+        Ref: RouteTablePubb
+      GatewayId:
+        Ref: IGW 
+  PubRoutec:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      RouteTableId:
+        Ref: RouteTablePubc
+      GatewayId:
+        Ref: IGW 
+  #FlowLOgs With Encryp
+  VpcLogGroupEncryp:
+    Condition: EnableVpcFloEncryp
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      KmsKeyId: !Ref FlowLogKmsArn
+      LogGroupName: !Join 
+        - ''
+        - - !Ref VPC
+          - '-FlowLog'
+      RetentionInDays: !Ref LogGroupRetention
+      Tags:
+
+        - Key: Name
+
+          Value: !Sub '${Prefix}-VpcFlowLOG'
+  VpcFlowLogsRoleEncryp:
+    Condition: EnableVpcFloEncryp
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Description: Role to VPC FlowLogs Send Logs to Loggroup Acces to Loggroup and KMS KEY
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service:
+                - vpc-flow-logs.amazonaws.com
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - 'logs:CreateLogStream'
+                  - 'logs:DescribeLogGroups'
+                  - 'logs:DescribeLogStreams'
+                  - 'logs:PutLogEvents'
+                  - 'kms:Encrypt'
+                  - 'kms:Decrypt'
+                  - 'kms:ReEncrypt'
+                  - 'kms:GenerateDataKey'
+                  - 'kms:Describe'
+                Effect: Allow
+                Resource:
+                  - !GetAtt VpcLogGroupEncryp.Arn
+                  - !Ref FlowLogKmsArn
+  VpcFlowLogEncryp:
+    Condition: EnableVpcFloEncryp
+    Type: 'AWS::EC2::FlowLog'
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt VpcFlowLogsRoleEncryp.Arn
+      LogGroupName: !Ref VpcLogGroupEncryp
+      ResourceId: !Ref VPC
+      ResourceType: VPC
+      TrafficType: ALL
+      Tags:
+        - Key: Name
+          Value:  'LogGroup-FlowLog'
+  #FlowLOgs Without Encryp
+  VpcLogGroupNotEncryp:
+    Condition: EnableVpcFloNotEncryp
+    Type: 'AWS::Logs::LogGroup'
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W84
+            reason: "No encryption required and logs to be used for trouble shooting"
+    Properties:
+      LogGroupName: !Join 
+        - ''
+        - - !Ref VPC
+          - '-FlowLog'
+      RetentionInDays: !Ref LogGroupRetention
+      Tags:
+        - Key: Name
+          Value: !Sub '${Prefix}-VpcFlowLOG'
+  VpcFlowLogsRoleNotEncryp:
+    Condition: EnableVpcFloNotEncryp
+    Type: 'AWS::IAM::Role'
+    Properties:
+      Description: Role to VPC FlowLogs Send Logs to Loggroup Acces to Loggroup and KMS KEY
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - 'sts:AssumeRole'
+            Effect: Allow
+            Principal:
+              Service:
+                - vpc-flow-logs.amazonaws.com
+      Path: /
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Action:
+                  - 'logs:CreateLogStream'
+                  - 'logs:DescribeLogGroups'
+                  - 'logs:DescribeLogStreams'
+                  - 'logs:PutLogEvents'
+                Effect: Allow
+                Resource:
+                  - !GetAtt VpcLogGroupNotEncryp.Arn
+  VpcFlowLogNotEncryp:
+    Condition: EnableVpcFloNotEncryp
+    Type: 'AWS::EC2::FlowLog'
+    Properties:
+      DeliverLogsPermissionArn: !GetAtt VpcFlowLogsRoleNotEncryp.Arn
+      LogGroupName: !Ref VpcLogGroupNotEncryp
+      ResourceId: !Ref VPC
+      ResourceType: VPC
+      TrafficType: ALL
+      Tags:
+        - Key: Name
+          Value:  'LogGroup-FlowLog' 
+  #Gateway  Endpoint 
+  CreateS3VPCEndpoint:
+    Condition: "EnableS3Endpoint"
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      ServiceName:
+        Fn::Join:
+          - ""
+          -
+            - "com.amazonaws."
+            - Ref: "AWS::Region"
+            - ".s3"
+      VpcId:
+        Ref: VPC
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal: "*"
+            Action:
+              - "*"
+            Resource:
+              - "*"
+      RouteTableIds:
+        - Ref: RouteTablePrivate
+  #Interface Endpoint 
+  SgForSSMVPCEndpoint:
+    Condition: "EnableSSMEndpoint"
+    Type: "AWS::EC2::SecurityGroup"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Names SG are required by design"
+          - id: W5
+            reason: "Egress interface endpoint limited 443 port"
+    Properties:
+      GroupName: !Sub '${PrefixResources}-sg-VpcSSMInterfaceEnpoints'
+      GroupDescription: "Security group to allow access to SSM VPC Endpoint"
+      SecurityGroupIngress:
+        - CidrIp: !GetAtt VPC.CidrBlock
+          IpProtocol: "tcp"
+          FromPort: 443
+          ToPort: 443
+          Description: "Default Rule Acces all VPC"
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          Description: "Default Rule Acces agress all access"
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+      VpcId:
+        Ref: "VPC"
+      Tags:
+        - Key: "Name"
+          Value: !Sub '${PrefixResources}-sg-VpcSSMInterfaceEnpoints'
+  SgForSQSVPCEndpoint:
+    Condition: "EnableSQSEndpoint"
+    Type: "AWS::EC2::SecurityGroup"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Names SG are required by design"
+          - id: W5
+            reason: "Egress interface endpoint limited 443 port"
+    Properties:
+      GroupName: !Sub '${PrefixResources}-sg-VpcSQSInterfaceEnpoints'
+      GroupDescription: "Security group to allow access to  SQS VPC Endpoint"
+      SecurityGroupIngress:
+        - CidrIp: !GetAtt VPC.CidrBlock
+          IpProtocol: "tcp"
+          FromPort: 443
+          ToPort: 443
+          Description: "Default Rule Acces all VPC"
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          Description: "Default Rule Acces agress all access"
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+      VpcId:
+        Ref: "VPC"
+      Tags:
+        - Key: "Name"
+          Value: !Sub '${PrefixResources}-sg-VpcSQSInterfaceEnpoints' 
+  SgForAPIGWVPCEndpoint:
+    Condition: "EnableAPIGWEndpoint"
+    Type: "AWS::EC2::SecurityGroup"
+    Metadata:
+      cfn_nag:
+        rules_to_suppress:
+          - id: W28
+            reason: "Names SG are required by design"
+          - id: W5
+            reason: "Egress interface endpoint limited 443 port"
+    Properties:
+      GroupName: !Sub '${PrefixResources}-sg-VpcAPIGWInterfaceEnpoints'
+      GroupDescription: "Security group to allow access to  API GATEWAY  VPC Endpoint"
+      SecurityGroupIngress:
+        - CidrIp: !GetAtt VPC.CidrBlock
+          IpProtocol: "tcp"
+          FromPort: 443
+          ToPort: 443
+          Description: "Default Rule Acces all VPC"
+      SecurityGroupEgress:
+        - CidrIp: "0.0.0.0/0"
+          Description: "Default Rule Acces agress all access"
+          IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+      VpcId:
+        Ref: "VPC"
+      Tags:
+        - Key: "Name"
+          Value: !Sub '${PrefixResources}-sg-VpcAPIGWInterfaceEnpoints' 
+  SSMEndpoint:
+    Condition: "EnableSSMEndpoint"
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - Ref: "SgForSSMVPCEndpoint"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ssm"
+      SubnetIds:
+        - Ref: PrivSubneta
+        - Ref: PrivSubnetb
+        - Ref: PrivSubnetc
+      VpcEndpointType: 'Interface'
+      VpcId:
+        Ref: VPC
+  SSMMessageEndpoint:
+    Condition: "EnableSSMEndpoint"
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - Ref: "SgForSSMVPCEndpoint"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.ssmmessages"
+      SubnetIds:
+        - Ref: PrivSubneta
+        - Ref: PrivSubnetb
+        - Ref: PrivSubnetc
+      VpcEndpointType: 'Interface'
+      VpcId:
+        Ref: VPC 
+  SQSEndpoint:
+    Condition: "EnableSQSEndpoint"
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - Ref: "SgForSQSVPCEndpoint"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.sqs"
+      SubnetIds:
+        - Ref: PrivSubneta
+        - Ref: PrivSubnetb
+        - Ref: PrivSubnetc
+      VpcEndpointType: 'Interface'
+      VpcId:
+        Ref: VPC
+  APIGWEndpoint:
+    Condition: "EnableAPIGWEndpoint"
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      PrivateDnsEnabled: true
+      SecurityGroupIds:
+        - Ref: "SgForAPIGWVPCEndpoint"
+      ServiceName: !Sub "com.amazonaws.${AWS::Region}.execute-api"
+      SubnetIds:
+        - Ref: PrivSubneta
+        - Ref: PrivSubnetb
+        - Ref: PrivSubnetc
+      VpcEndpointType: 'Interface'
+      VpcId:
+        Ref: VPC
+
